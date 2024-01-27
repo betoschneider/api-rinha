@@ -15,40 +15,40 @@ def conectar():
         print(f"Erro: Não foi possível conectar ao banco de dados\n{e}")
         return None
 
-#listar todas as pessoas
-@app.route('/pessoas', methods=['GET'])
-def get_pessoas():
-    conexao = conectar()
-    if conexao:
-        try:
-            cursor = conexao.cursor()
-            query_selecionar_todos = '''
-                SELECT id, apelido, nome, TO_CHAR(nascimento, 'dd/mm/yyyy') as nascimento, stack FROM pessoas;
-            '''
-            cursor.execute(query_selecionar_todos)
-            # Obtém os resultados
-            results = cursor.fetchall()
+# #listar todas as pessoas
+# @app.route('/pessoas', methods=['GET'])
+# def get_pessoas():
+#     conexao = conectar()
+#     if conexao:
+#         try:
+#             cursor = conexao.cursor()
+#             query_selecionar_todos = '''
+#                 SELECT id, apelido, nome, TO_CHAR(nascimento, 'dd/mm/yyyy') as nascimento, stack FROM pessoas;
+#             '''
+#             cursor.execute(query_selecionar_todos)
+#             # Obtém os resultados
+#             results = cursor.fetchall()
 
-            # Obtém os nomes das colunas
-            columns = [desc[0] for desc in cursor.description]
+#             # Obtém os nomes das colunas
+#             columns = [desc[0] for desc in cursor.description]
 
-            # Cria um dicionário para cada linha e converte para JSON
-            json_result = []
-            for row in results:
-                row_dict = dict(zip(columns, row))
-                json_result.append(row_dict)
+#             # Cria um dicionário para cada linha e converte para JSON
+#             json_result = []
+#             for row in results:
+#                 row_dict = dict(zip(columns, row))
+#                 json_result.append(row_dict)
 
-            return json.dumps(json_result, indent=2, ensure_ascii=False)
-        except psycopg2.Error as e:
-            print(f"Erro: Não foi possível recuperar os dados\n{e}")
-        finally:
-            cursor.close()
-            conexao.close()
+#             return json.dumps(json_result, indent=2, ensure_ascii=False)
+#         except psycopg2.Error as e:
+#             print(f"Erro: Não foi possível recuperar os dados\n{e}")
+#         finally:
+#             cursor.close()
+#             conexao.close()
 
 
 #buscar por id
 @app.route('/pessoas/<pessoa_id>', methods=['GET'])
-def get_pessoaa(pessoa_id):
+def get_pessoa(pessoa_id):
     conexao = conectar()
     if conexao:
         try:
@@ -101,27 +101,72 @@ def create_pessoa():
             cursor.close()
             conexao.close()
 
+#buscar por termo
+@app.route('/pessoas', methods=['GET'])
+def get_pessoa_termo():
+    termo = request.args.get('t').lower()
+    
+    conexao = conectar()
+    if conexao:
+        try:
+            cursor = conexao.cursor()
+            consulta = '''
+                SELECT id, apelido, nome, TO_CHAR(nascimento, 'dd/mm/yyyy') as nascimento, stack 
+                FROM pessoas
+                WHERE lower(busca) like '%s';
+            ''' % (termo)
+            cursor.execute(consulta, ('%' + termo + '%',))
+            # Obtém o resultado
+            result = cursor.fetchone()
 
-#atualizar pessoa
-@app.route('/pessoas/<int:pessoa_id>', methods=['PUT'])
-def update_pessoa(pessoa_id):
-    for pessoa in bd_pessoas:
-        if pessoa['id'] == pessoa_id:
-            pessoa['apelido'] = request.json['apelido']
-            pessoa['nome'] = request.json['nome']
-            pessoa['nascimento'] = request.json['nascimento']
-            return pessoa, 200
-    return {"message": "pessoa nao encontrada"}, 404
+            # Se não houver resultado, retorna None
+            if result is None:
+                return jsonify({"message": "pessoa não encontrada"}), 404
 
-#deletar pessoa
-@app.route('/pessoas/<int:pessoa_id>', methods=['DELETE'])
-def delete_pessoa(pessoa_id):
-    for pessoa in bd_pessoas:
-        if pessoa['id'] == pessoa_id:
-            bd_pessoas.remove(pessoa)
-            return {"message": "Pessoa removida com sucesso."}, 202
-    return {"message": "pessoa nao encontrada"}, 404
+            # Obtém os nomes das colunas
+            columns = [desc[0] for desc in cursor.description]
 
+            # Cria um dicionário para a linha e converte para JSON
+            row_dict = dict(zip(columns, result))
+
+            return json.dumps(row_dict, indent=2, ensure_ascii=False), 200
+        except psycopg2.Error as e:
+            return jsonify({"message": "Erro no servidor"}), 500
+        finally:
+            cursor.close()
+            conexao.close()
+
+#contagem de pessoas
+@app.route('/contagem-pessoas', methods=['GET'])
+def contar_pessoas():
+    conexao = conectar()
+    if conexao:
+        try:
+            cursor = conexao.cursor()
+            consulta = '''
+                SELECT COUNT(*) AS contagem FROM pessoas;
+            '''
+            cursor.execute(consulta)
+            # Obtém o resultado
+            result = cursor.fetchone()
+
+            # Se não houver resultado, retorna None
+            if result is None:
+                return None
+
+            # Obtém os nomes das colunas
+            columns = [desc[0] for desc in cursor.description]
+
+            # Cria um dicionário para a linha e converte para JSON
+            row_dict = dict(zip(columns, result))
+
+            return json.dumps(row_dict, indent=2, ensure_ascii=False), 200
+            
+        except psycopg2.Error as e:
+            {"message": "nao foi possivel efetuar a contagem"}, 500
+        finally:
+            cursor.close()
+            conexao.close()
 
 #executar app
 if __name__ == '__main__':

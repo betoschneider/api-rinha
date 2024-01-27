@@ -3,6 +3,6 @@ credencial = {
     'host': 'localhost',
     'database': 'app',
     'user': 'postgres',
-    'password': 'root',
+    'password': 'postgres',
     'port': '5432'
 }
